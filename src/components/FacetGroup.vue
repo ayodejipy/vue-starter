@@ -91,7 +91,7 @@ const sortedEntries = computed((): [string, number][] => {
   
   &:focus-within {
     outline: 2px solid var(--color-accent);
-    outline-offset: px;
+    outline-offset: -2px;
   }
   
   &.is-active {

@@ -49,6 +49,7 @@ export interface CrossrefWork {
     }
   }
   score: number
+  volume?: string
 }
 
 export interface CrossrefAuthor {

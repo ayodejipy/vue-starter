@@ -65,10 +65,14 @@ const displayType = computed(() =>
       <span v-if="publishedYear" class="result-year">{{ publishedYear }}</span>
       <span v-if="item.publisher" class="result-publisher">{{ item.publisher }}</span>
     </div>
+    <div class="result-details">
+      <span v-if="item.volume" class="result-volume">volume: {{ item.volume }}</span>
+      <span v-if="item.page" class="result-pages">pages: {{ item.page }}</span>
+    </div>
 
     <div class="result-doi">
       <a :href="item.URL" target="_blank" rel="noopener noreferrer" class="result-doi-link" :aria-label="`Access resource at doi.org/${item.DOI} (opens in new tab)`">
-        doi.org/{{ item.DOI }}
+        {{ item.URL }}
       </a>
     </div>
   </article>
@@ -140,6 +144,7 @@ const displayType = computed(() =>
 }
 
 .result-year,
+.result-pages,
 .result-publisher {
   white-space: nowrap;
   font-weight: 500;
@@ -150,7 +155,7 @@ const displayType = computed(() =>
 }
 
 .result-doi-link {
-  color: var(--color-text-muted);
+  color: var(--color-accent);
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
 }
 
