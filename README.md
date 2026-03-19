@@ -31,13 +31,15 @@ npm install
 
 ## Design decisions
 
-### Stable facet list during filtering
+### Disjunctive (independent) facets
 
-The filter sidebar always shows the full facet list from the most recent keyword search. When a user toggles a filter, the facet options do not change — only the results update. The selected filter is highlighted visually, and deselecting it restores the unfiltered results.
+When the user toggles a filter in group A, the API is re-fetched with all active filters and the response facets are applied to **every group except A**. Group A's option list stays anchored to the snapshot that was captured the last time group A had no active filter. This means:
 
-**Why:** Replacing the facet list on every filter request creates a disorienting UX. If the API only returns facets relevant to the filtered subset, previously available options disappear, making it impossible to switch to a different filter value without clearing first. Keeping the facet list anchored to the keyword search lets users freely explore and compare filter options.
+- Selecting "Journal Article" under Record Type does **not** collapse the Record Type list — the user can still pick "Conference Paper" on the next click (multi-select within a group works correctly).
+- Cross-group facets **do** update: selecting "Journal Article" refreshes the Publication Year facet to show only the years that contain journal articles.
+- Only **one** API call is made per filter toggle — no extra requests needed.
 
-**How it works:** `useCrossrefSearch` distinguishes between keyword-driven fetches (which update the facet list) and filter/pagination fetches (which preserve it). The `fetchResults(updateFacets: boolean)` function controls this — `search()` and the debounced query watcher pass `true`; `toggleFilter`, `clearFilters`, and the rows watcher pass `false`.
+**How it works:** `fetchResults` accepts an optional `excludeFacetGroup` parameter. When provided (by `toggleFilter`), the function updates all facet groups in `facets.value` except the excluded one, preserving that group's pre-toggle snapshot. Keyword searches and `clearFilters` call `fetchResults` without exclusion, resetting all facets from the fresh response.
 
 ### Filters are cleared on a new keyword search
 

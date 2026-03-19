@@ -4,7 +4,7 @@ import type { CrossrefResponse } from '@/types/crossref'
 import { FACET_CONFIG } from '@/config/facets'
 import { buildUrl, ROWS_OPTIONS } from '@/utils'
 
-const DEBOUNCE_MS = 550
+const DEBOUNCE_MS = 840
 const MIN_QUERY_LENGTH = 2
 
 export function useCrossrefSearch() {
@@ -26,10 +26,15 @@ export function useCrossrefSearch() {
   let currentAbort: AbortController | null = null
 
   /**
-   * Pass updateFacets=true only for keyword-driven searches so the
-   * facet list stays stable while the user is toggling filters.
+   * Fetch results and optionally update facets.
+   *
+   * @param updateFacets - set false to skip updating the facet panel (e.g. rows change)
+   * @param excludeFacetGroup - when set, update all facet groups EXCEPT this one.
+   *   Used by toggleFilter for disjunctive behaviour: the toggled group's options stay
+   *   anchored to the pre-toggle snapshot so multi-select within that group stays possible.
+   *   Cross-group facets (all other groups) still update to reflect the new filter context.
    */
-  async function fetchResults(updateFacets: boolean = true) {
+  async function fetchResults(updateFacets: boolean = true, excludeFacetGroup?: string) {
     const q = query.value.trim()
     if (!q) return
 
@@ -52,9 +57,20 @@ export function useCrossrefSearch() {
       const data: CrossrefResponse = await response.json()
 
       results.value = data.message.items
-      if (updateFacets) facets.value = data.message.facets
       totalResults.value = data.message['total-results']
       hasSearched.value = true
+
+      if (updateFacets) {
+        if (excludeFacetGroup && facets.value) {
+          // Disjunctive update: refresh every group except the one being toggled.
+          // The excluded group's options stay anchored to its pre-toggle snapshot.
+          FACET_CONFIG.forEach((f) => {
+            if (f.id !== excludeFacetGroup) facets.value![f.id] = data.message.facets[f.id]
+          })
+        } else {
+          facets.value = data.message.facets
+        }
+      }
     } catch (err) {
       // AbortError means a newer request superseded this one — not a real error
       if (err instanceof Error && err.name === 'AbortError') return
@@ -111,12 +127,12 @@ export function useCrossrefSearch() {
       else current.push(value)
     }
 
-    fetchResults(false)
+    fetchResults(true, facetId)
   }
 
   function clearFilters() {
     resetFilters()
-    fetchResults(false)
+    fetchResults(true)
   }
 
   return {

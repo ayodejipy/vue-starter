@@ -20,7 +20,6 @@ export const FACET_CONFIG: FacetConfig[] = [
   {
     id: 'published',
     label: 'Publication Year',
-    multiSelect: true,
     sortByYear: true,
     // Pin to an exact year using both bounds
     buildFilter: (year) => [`from-pub-date:${year}`, `until-pub-date:${year}`],
