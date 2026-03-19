@@ -116,22 +116,6 @@ When the user submits a new query (or the debounced auto-search fires), all acti
 
 `FACET_CONFIG` drives whether a facet is multi-select or single-select. All facets are multi-select, so both branches of the `if (config?.multiSelect)` check in `toggleFilter` do the same thing. The branch is kept explicitly so that a future facet set to `multiSelect: false` can be given distinct single-select behaviour (e.g. replacing the current selection rather than appending) without touching the toggle logic elsewhere.
 
----
-
-### Handling API response time
-
-The Crossref API can take 1–5 seconds per request, depending on query complexity and server load. The current approach:
-
-- `isLoading` flips to `true` synchronously before the fetch begins — the spinner appears with no perceptible delay.
-- `AbortController` cancels any in-flight request before starting a new one, so stale responses can never overwrite fresh results.
-- The search input and submit button are disabled while loading, preventing concurrent requests.
-- Previous results remain visible until the new response arrives, avoiding a jarring blank state mid-request.
-- A 500 ms debounce on the query watcher limits requests while typing without delaying the explicit Submit path.
-- The polite `mailto` parameter is included on every request as required by Crossref's etiquette guidelines.
-
-There is currently **no caching** — every unique query + filter combination makes a fresh network round-trip.
-
----
 
 ## Out-of-scope ideas (given more time)
 
