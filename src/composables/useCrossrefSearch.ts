@@ -4,7 +4,7 @@ import type { CrossrefResponse } from '@/types/crossref'
 import { FACET_CONFIG } from '@/config/facets'
 import { buildUrl, ROWS_OPTIONS } from '@/utils'
 
-const DEBOUNCE_MS = 500
+const DEBOUNCE_MS = 550
 const MIN_QUERY_LENGTH = 2
 
 export function useCrossrefSearch() {
@@ -26,7 +26,7 @@ export function useCrossrefSearch() {
   let currentAbort: AbortController | null = null
 
   /**
-   * Core fetch. Pass updateFacets=true only for keyword-driven searches so the
+   * Pass updateFacets=true only for keyword-driven searches so the
    * facet list stays stable while the user is toggling filters.
    */
   async function fetchResults(updateFacets: boolean = true) {
@@ -68,23 +68,29 @@ export function useCrossrefSearch() {
     }
   }
 
-  // Keyword search (explicit submit) — always refreshes facets
+  // Mutate in place — splice guarantees that all child components re-render with the cleared state.
+  function resetFilters() {
+    FACET_CONFIG.forEach((facet) => activeFilters[facet.id].splice(0))
+  }
+
+  // Keyword search (explicit submit)
   async function search() {
     if (debounceTimer) {
       clearTimeout(debounceTimer)
       debounceTimer = null
     }
-    await fetchResults()
+    resetFilters()
+    await fetchResults(true)
   }
 
-  // Re-fetch when rows changes (preserve facets — this isn't a new keyword search)
+  // Re-fetch when rows changes
   watch(rows, () => { if (hasSearched.value) fetchResults(false) })
 
-  // Auto-search while typing: debounced, min length guard — refreshes facets
+  // Auto-search while typing: debounced, min length guard — clears filters and refreshes facets
   watch(query, (newVal) => {
     if (debounceTimer) clearTimeout(debounceTimer)
     if (newVal.trim().length < MIN_QUERY_LENGTH) return
-    debounceTimer = setTimeout(() => fetchResults(), DEBOUNCE_MS)
+    debounceTimer = setTimeout(() => { resetFilters(); fetchResults() }, DEBOUNCE_MS)
   })
 
   /**
@@ -93,7 +99,7 @@ export function useCrossrefSearch() {
    * Facets are preserved — only results update.
    */
   function toggleFilter(facetId: string, value: string) {
-    const config = FACET_CONFIG.find((f) => f.id === facetId)
+    const config = FACET_CONFIG.find((facet) => facet.id === facetId)
     const current = activeFilters[facetId]
     const idx = current.indexOf(value)
 
@@ -101,14 +107,15 @@ export function useCrossrefSearch() {
       if (idx >= 0) current.splice(idx, 1)
       else current.push(value)
     } else {
-      activeFilters[facetId] = idx >= 0 ? [] : [value]
+      if (idx >= 0) current.splice(idx, 1)
+      else current.push(value)
     }
 
     fetchResults(false)
   }
 
   function clearFilters() {
-    FACET_CONFIG.forEach((facet) => (activeFilters[facet.id] = []))
+    resetFilters()
     fetchResults(false)
   }
 
