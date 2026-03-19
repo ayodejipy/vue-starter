@@ -4,7 +4,7 @@ import type { CrossrefResponse } from '@/types/crossref'
 import { FACET_CONFIG } from '@/config/facets'
 import { buildUrl, ROWS_OPTIONS } from '@/utils'
 
-const DEBOUNCE_MS = 840
+const DEBOUNCE_MS = 740
 const MIN_QUERY_LENGTH = 2
 
 export function useCrossrefSearch() {
@@ -29,10 +29,10 @@ export function useCrossrefSearch() {
    * Fetch results and optionally update facets.
    *
    * @param updateFacets - set false to skip updating the facet panel (e.g. rows change)
-   * @param excludeFacetGroup - when set, update all facet groups EXCEPT this one.
-   *   Used by toggleFilter for disjunctive behaviour: the toggled group's options stay
-   *   anchored to the pre-toggle snapshot so multi-select within that group stays possible.
-   *   Cross-group facets (all other groups) still update to reflect the new filter context.
+   * @param excludeFacetGroup - when set, activates disjunctive (snapshot-preserving) mode.
+   *   Only groups with NO active filters are updated from the response. Groups that already
+   *   have active selections keep their snapshot — prevents their option list from collapsing
+   *   to only the values that intersect with other active filters.
    */
   async function fetchResults(updateFacets: boolean = true, excludeFacetGroup?: string) {
     const q = query.value.trim()
@@ -62,10 +62,33 @@ export function useCrossrefSearch() {
 
       if (updateFacets) {
         if (excludeFacetGroup && facets.value) {
-          // Disjunctive update: refresh every group except the one being toggled.
-          // The excluded group's options stay anchored to its pre-toggle snapshot.
-          FACET_CONFIG.forEach((f) => {
-            if (f.id !== excludeFacetGroup) facets.value![f.id] = data.message.facets[f.id]
+          // Disjunctive update: each group is handled based on its current filter state.
+          FACET_CONFIG.forEach((facet) => {
+            const responseGroup = data.message.facets[facet.id]
+            if (activeFilters[facet.id].length === 0) {
+              facets.value![facet.id] = responseGroup
+            } else {
+              // Has active filters: preserve the full option list from the snapshot,
+              // but sync each option's count from the response.
+              // Options present in the response (the selected ones) get their current count;
+              // options absent from the response get 0 — they exist but match nothing
+              // in the current filter context.
+              const snapshot = facets.value![facet.id]
+              if (snapshot && responseGroup) {
+                const updatedValues: Record<string, number> = {}
+                Object.keys(snapshot.values).forEach((key) => {
+                  if (activeFilters[facet.id].includes(key)) {
+                    // Selected option: show its count within the current filter context.
+                    updatedValues[key] = responseGroup.values[key] ?? 0
+                  } else {
+                    // Unselected option: keep the snapshot count so the option
+                    // remains visually available for multi-select.
+                    updatedValues[key] = snapshot.values[key]
+                  }
+                })
+                facets.value![facet.id] = { ...snapshot, values: updatedValues }
+              }
+            }
           })
         } else {
           facets.value = data.message.facets
